@@ -9,6 +9,7 @@ import (
 
 	"url_shortener/controllers"
 	"url_shortener/db"
+	"url_shortener/middlewares"
 )
 
 func main() {
@@ -20,8 +21,16 @@ func main() {
 	db.InitMongoClient()
 
 	r := mux.NewRouter()
-	r.HandleFunc("/shorten", controllers.ShortenURL).Methods("POST")
-	r.HandleFunc("/{shortURL}", controllers.RedirectToOriginal).Methods("GET")
+
+	r.HandleFunc("/signup",controllers.SignUpHandler).Methods("POST")
+	r.HandleFunc("/login",controllers.LoginHandler).Methods("POST")
+
+	shortenerRoute := r.PathPrefix("/shorten").Subrouter()
+    shortenerRoute.Use(middlewares.Authentication)
+    shortenerRoute.HandleFunc("", controllers.ShortenURL).Methods("POST")
+	
+	redirectRoute := r.PathPrefix("/{shortURL}").Subrouter()
+    redirectRoute.HandleFunc("", controllers.RedirectToOriginal).Methods("GET")
 
 	http.Handle("/", r)
 	log.Println("Server started on :8080")

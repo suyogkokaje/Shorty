@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
-	"math/rand"
 
 	"github.com/gorilla/mux"
-	
 	"url_shortener/db"
 	"url_shortener/models"
 )
@@ -20,13 +19,13 @@ var (
 )
 
 func generateShortKey() string {
-    characters := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    keyLength := 6
-    var result strings.Builder
-    for i := 0; i < keyLength; i++ {
-        result.WriteByte(characters[rand.Intn(len(characters))])
-    }
-    return result.String()
+	characters := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	keyLength := 6
+	var result strings.Builder
+	for i := 0; i < keyLength; i++ {
+		result.WriteByte(characters[rand.Intn(len(characters))])
+	}
+	return result.String()
 }
 
 func ShortenURL(w http.ResponseWriter, r *http.Request) {
@@ -34,11 +33,18 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 	originalURL := r.FormValue("url")
 
 	shortKey := generateShortKey()
+	userClaims,ok := r.Context().Value("userClaims").(*models.SignedDetails)
+	fmt.Println(userClaims.Uid)
+	if !ok {
+		http.Error(w, "Failed to get user claims", http.StatusInternalServerError)
+		return
+	}
 
 	collection := db.MongoClient.Database(os.Getenv("DATABASE_NAME")).Collection(collectionName)
 	_, err := collection.InsertOne(context.Background(), models.URL{
 		ShortKey:    shortKey,
 		OriginalURL: originalURL,
+		UserID:      userClaims.Uid,
 	})
 
 	if err != nil {
@@ -67,5 +73,8 @@ func RedirectToOriginal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, result.OriginalURL, http.StatusFound)
+	redirectReq, _ := http.NewRequest("GET", result.OriginalURL, nil)
+	redirectReq.Header = r.Header
+
+	http.Redirect(w, r, redirectReq.URL.String(), http.StatusFound)
 }
