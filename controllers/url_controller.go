@@ -34,16 +34,27 @@ func generateShortKey() string {
 func ShortenURL(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	originalURL := r.FormValue("url")
+	password := r.FormValue("password")
 
 	shortKey := generateShortKey()
 	userClaims, ok := r.Context().Value("userClaims").(*models.SignedDetails)
-	fmt.Println(userClaims.Uid)
 	if !ok {
 		http.Error(w, "Failed to get user claims", http.StatusInternalServerError)
 		return
 	}
 
 	collection := db.MongoClient.Database(os.Getenv("DATABASE_NAME")).Collection(collectionName)
+
+	var passwordPtr *string
+	if password != "" {
+		passwordPtr = &password
+	}
+
+	passwordValue := ""
+	if passwordPtr != nil {
+		passwordValue = *passwordPtr
+	}
+
 	_, err := collection.InsertOne(context.Background(), models.URL{
 		ShortKey:         shortKey,
 		OriginalURL:      originalURL,
@@ -51,6 +62,7 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 		ClickCount:       0,
 		CreatedAt:        time.Now(),
 		LastRedirectedAt: time.Time{},
+		Password:         passwordValue, 
 	})
 
 	if err != nil {
@@ -67,6 +79,8 @@ func RedirectToOriginal(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	shortKey := params["shortURL"]
 
+	password := r.FormValue("password")
+
 	collection := db.MongoClient.Database(os.Getenv("DATABASE_NAME")).Collection(collectionName)
 	var result models.URL
 	err := collection.FindOneAndUpdate(context.Background(), bson.M{"shortKey": shortKey},
@@ -76,6 +90,13 @@ func RedirectToOriginal(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		http.Error(w, "URL not found", http.StatusNotFound)
 		return
+	}
+
+	if result.Password != "" {
+		if password != result.Password {
+			http.Error(w, "Access denied. Invalid password.", http.StatusUnauthorized)
+			return
+		}
 	}
 
 	redirectReq, _ := http.NewRequest("GET", result.OriginalURL, nil)
