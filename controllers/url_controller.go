@@ -8,10 +8,13 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/gorilla/mux"
 	"url_shortener/db"
 	"url_shortener/models"
+
+	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 var (
@@ -33,7 +36,7 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 	originalURL := r.FormValue("url")
 
 	shortKey := generateShortKey()
-	userClaims,ok := r.Context().Value("userClaims").(*models.SignedDetails)
+	userClaims, ok := r.Context().Value("userClaims").(*models.SignedDetails)
 	fmt.Println(userClaims.Uid)
 	if !ok {
 		http.Error(w, "Failed to get user claims", http.StatusInternalServerError)
@@ -42,9 +45,12 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	collection := db.MongoClient.Database(os.Getenv("DATABASE_NAME")).Collection(collectionName)
 	_, err := collection.InsertOne(context.Background(), models.URL{
-		ShortKey:    shortKey,
-		OriginalURL: originalURL,
-		UserID:      userClaims.Uid,
+		ShortKey:         shortKey,
+		OriginalURL:      originalURL,
+		UserID:           userClaims.Uid,
+		ClickCount:       0,
+		CreatedAt:        time.Now(),
+		LastRedirectedAt: time.Time{},
 	})
 
 	if err != nil {
@@ -63,9 +69,8 @@ func RedirectToOriginal(w http.ResponseWriter, r *http.Request) {
 
 	collection := db.MongoClient.Database(os.Getenv("DATABASE_NAME")).Collection(collectionName)
 	var result models.URL
-	err := collection.FindOne(context.Background(), map[string]interface{}{
-		"shortKey": shortKey,
-	}).Decode(&result)
+	err := collection.FindOneAndUpdate(context.Background(), bson.M{"shortKey": shortKey},
+		bson.M{"$inc": bson.M{"clickCount": 1}, "$set": bson.M{"lastRedirectedAt": time.Now()}}).Decode(&result)
 
 	if err != nil {
 		log.Println(err)
