@@ -8,19 +8,28 @@ import (
 	"os"
 	"time"
 
+	"url_shortener/constants"
 	"url_shortener/db"
 	"url_shortener/models"
 	"url_shortener/utils"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
+	"golang.org/x/time/rate"
 )
 
 var (
 	collectionName = "shorturls"
+	limiter        = rate.NewLimiter(1, 2)
 )
 
 func ShortenURL(w http.ResponseWriter, r *http.Request) {
+
+	if !limiter.Allow() {
+		http.Error(w, constants.RateLimitExceeded, http.StatusTooManyRequests)
+		return
+	}
+
 	r.ParseForm()
 	originalURL := r.FormValue("url")
 	password := r.FormValue("password")
@@ -28,7 +37,7 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	userClaims, ok := r.Context().Value("userClaims").(*models.SignedDetails)
 	if !ok {
-		http.Error(w, "Failed to get user claims", http.StatusInternalServerError)
+		http.Error(w, constants.FailedToGetUserClaims, http.StatusInternalServerError)
 		return
 	}
 
@@ -38,11 +47,11 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 		count, err := collection.CountDocuments(context.Background(), bson.M{"shortKey": customShortKey})
 		if err != nil {
 			log.Println(err)
-			http.Error(w, "Failed to check custom short key uniqueness", http.StatusInternalServerError)
+			http.Error(w, constants.FailedToCheckCustomKey, http.StatusInternalServerError)
 			return
 		}
 		if count > 0 {
-			http.Error(w, "Custom short key is already in use", http.StatusBadRequest)
+			http.Error(w, constants.CustomKeyAlreadyInUse, http.StatusBadRequest)
 			return
 		}
 	} else {
@@ -61,15 +70,21 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "Failed to shorten URL", http.StatusInternalServerError)
+		http.Error(w, constants.FailedToShortenURL, http.StatusInternalServerError)
 		return
 	}
 
 	shortenedURL := os.Getenv("BASE_URL") + customShortKey
-	fmt.Fprintf(w, "Shortened URL: %s", shortenedURL)
+	fmt.Fprintf(w, constants.ShortenedURL, shortenedURL)
 }
 
 func RedirectToOriginal(w http.ResponseWriter, r *http.Request) {
+
+	if !limiter.Allow() {
+		http.Error(w, constants.RateLimitExceeded, http.StatusTooManyRequests)
+		return
+	}
+
 	params := mux.Vars(r)
 	shortKey := params["shortURL"]
 
@@ -82,13 +97,13 @@ func RedirectToOriginal(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "URL not found", http.StatusNotFound)
+		http.Error(w, constants.URLNotFound, http.StatusNotFound)
 		return
 	}
 
 	if result.Password != "" {
 		if password != result.Password {
-			http.Error(w, "Access denied. Invalid password.", http.StatusUnauthorized)
+			http.Error(w, constants.AccessDeniedInvalidPass, http.StatusUnauthorized)
 			return
 		}
 	}
