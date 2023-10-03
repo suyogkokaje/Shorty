@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"url_shortener/db"
 	"url_shortener/models"
+	"url_shortener/utils"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,22 +20,12 @@ var (
 	collectionName = "shorturls"
 )
 
-func generateShortKey() string {
-	characters := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	keyLength := 6
-	var result strings.Builder
-	for i := 0; i < keyLength; i++ {
-		result.WriteByte(characters[rand.Intn(len(characters))])
-	}
-	return result.String()
-}
-
 func ShortenURL(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	originalURL := r.FormValue("url")
 	password := r.FormValue("password")
 
-	shortKey := generateShortKey()
+	shortKey := utils.GenerateShortKey()
 	userClaims, ok := r.Context().Value("userClaims").(*models.SignedDetails)
 	if !ok {
 		http.Error(w, "Failed to get user claims", http.StatusInternalServerError)
