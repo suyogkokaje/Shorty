@@ -9,4 +9,6 @@ const (
 	URLNotFound             = "URL not found"
 	AccessDeniedInvalidPass = "Access denied. Invalid password."
 	ShortenedURL            = "Shortened URL: %s"
+	InvalidToken            = "the token is invalid"
+	ExpiredToken            = "token is expired"
 )

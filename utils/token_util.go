@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"url_shortener/constants"
 	"url_shortener/db"
 	"url_shortener/models"
 
@@ -66,13 +67,13 @@ func ValidateToken(signedToken string) (claims *models.SignedDetails, msg string
 
 	claims, ok := token.Claims.(*models.SignedDetails)
 	if !ok {
-		msg = fmt.Sprintf("the token is invalid")
+		msg = fmt.Sprintf(constants.InvalidToken)
 		msg = err.Error()
 		return
 	}
 
 	if claims.ExpiresAt < time.Now().Local().Unix() {
-		msg = fmt.Sprintf("token is expired")
+		msg = fmt.Sprintf(constants.ExpiredToken)
 		msg = err.Error()
 		return
 	}
@@ -81,36 +82,47 @@ func ValidateToken(signedToken string) (claims *models.SignedDetails, msg string
 
 // UpdateAllTokens renews the user tokens when they login
 func UpdateAllTokens(signedToken string, signedRefreshToken string, userId string) {
-	var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 
-	var updateObj primitive.D
+	errChan := make(chan error, 1)
 
-	updateObj = append(updateObj, bson.E{Key: "token", Value: signedToken})
-	updateObj = append(updateObj, bson.E{Key: "refresh_token", Value: signedRefreshToken})
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
-	Updated_at, _ := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-	updateObj = append(updateObj, bson.E{Key: "updated_at", Value: Updated_at})
+		var updateObj primitive.D
+		Updated_at, _ := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		updateObj = bson.D{
+			{Key: "token", Value: signedToken},
+			{Key: "refresh_token", Value: signedRefreshToken},
+			{Key: "updated_at", Value: Updated_at},
+		}
 
-	upsert := true
-	filter := bson.M{"user_id": userId}
-	opt := options.UpdateOptions{
-		Upsert: &upsert,
+		upsert := true
+		filter := bson.M{"user_id": userId}
+		opt := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+
+		_, err := userCollection.UpdateOne(
+			ctx,
+			filter,
+			bson.D{
+				{Key: "$set", Value: updateObj},
+			},
+			&opt,
+		)
+
+		if err != nil {
+			errChan <- err
+			return
+		}
+		errChan <- nil
+	}()
+
+	select {
+	case err := <-errChan:
+		if err != nil {
+			log.Panic(err)
+		}
 	}
-
-	_, err := userCollection.UpdateOne(
-		ctx,
-		filter,
-		bson.D{
-			{Key: "$set", Value: updateObj},
-		},
-		&opt,
-	)
-	defer cancel()
-
-	if err != nil {
-		log.Panic(err)
-		return
-	}
-
-	return
 }
