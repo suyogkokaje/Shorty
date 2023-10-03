@@ -24,8 +24,8 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	originalURL := r.FormValue("url")
 	password := r.FormValue("password")
+	customShortKey := r.FormValue("customShortKey")
 
-	shortKey := utils.GenerateShortKey()
 	userClaims, ok := r.Context().Value("userClaims").(*models.SignedDetails)
 	if !ok {
 		http.Error(w, "Failed to get user claims", http.StatusInternalServerError)
@@ -34,24 +34,29 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	collection := db.MongoClient.Database(os.Getenv("DATABASE_NAME")).Collection(collectionName)
 
-	var passwordPtr *string
-	if password != "" {
-		passwordPtr = &password
-	}
-
-	passwordValue := ""
-	if passwordPtr != nil {
-		passwordValue = *passwordPtr
+	if customShortKey != "" {
+		count, err := collection.CountDocuments(context.Background(), bson.M{"shortKey": customShortKey})
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Failed to check custom short key uniqueness", http.StatusInternalServerError)
+			return
+		}
+		if count > 0 {
+			http.Error(w, "Custom short key is already in use", http.StatusBadRequest)
+			return
+		}
+	} else {
+		customShortKey = utils.GenerateShortKey()
 	}
 
 	_, err := collection.InsertOne(context.Background(), models.URL{
-		ShortKey:         shortKey,
+		ShortKey:         customShortKey,
 		OriginalURL:      originalURL,
 		UserID:           userClaims.Uid,
 		ClickCount:       0,
 		CreatedAt:        time.Now(),
 		LastRedirectedAt: time.Time{},
-		Password:         passwordValue, 
+		Password:         password,
 	})
 
 	if err != nil {
@@ -60,7 +65,7 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortenedURL := os.Getenv("BASE_URL") + shortKey
+	shortenedURL := os.Getenv("BASE_URL") + customShortKey
 	fmt.Fprintf(w, "Shortened URL: %s", shortenedURL)
 }
 
