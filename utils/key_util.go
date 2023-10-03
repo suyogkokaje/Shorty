@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"math/big"
 	"github.com/google/uuid"
+	"math/big"
 )
 
 const base62Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -23,8 +23,8 @@ func base62Encode(s string) string {
 }
 
 func GenerateShortKey() string {
-	uuid := uuid.New()               
-	shortKey := uuid.String()[:6]    
-	shortKey = base62Encode(shortKey) 
+	uuid := uuid.New()
+	shortKey := uuid.String()[:6]
+	shortKey = base62Encode(shortKey)
 	return shortKey
 }

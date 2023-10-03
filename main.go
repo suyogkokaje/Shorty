@@ -22,15 +22,15 @@ func main() {
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/signup",controllers.SignUpHandler).Methods("POST")
-	r.HandleFunc("/login",controllers.LoginHandler).Methods("POST")
+	r.HandleFunc("/signup", controllers.SignUpHandler).Methods("POST")
+	r.HandleFunc("/login", controllers.LoginHandler).Methods("POST")
 
 	shortenerRoute := r.PathPrefix("/shorten").Subrouter()
-    shortenerRoute.Use(middlewares.Authentication)
-    shortenerRoute.HandleFunc("", controllers.ShortenURL).Methods("POST")
-	
+	shortenerRoute.Use(middlewares.Authentication)
+	shortenerRoute.HandleFunc("", controllers.ShortenURL).Methods("POST")
+
 	redirectRoute := r.PathPrefix("/{shortURL}").Subrouter()
-    redirectRoute.HandleFunc("", controllers.RedirectToOriginal).Methods("GET")
+	redirectRoute.HandleFunc("", controllers.RedirectToOriginal).Methods("GET")
 
 	http.Handle("/", r)
 	log.Println("Server started on :8080")
