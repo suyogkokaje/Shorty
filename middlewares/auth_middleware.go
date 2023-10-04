@@ -2,11 +2,9 @@ package middlewares
 
 import (
 	"context"
-	// "fmt"
 	"net/http"
 
 	"url_shortener/utils"
-	// "github.com/gorilla/context"
 )
 
 // Authentication validates token and authorizes users

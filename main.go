@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"github.com/joho/godotenv"
 
 	"url_shortener/controllers"
 	"url_shortener/db"
@@ -14,11 +13,6 @@ import (
 )
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
 	db.InitMongoClient()
 
 	// corsHandler := handlers.CORS(
