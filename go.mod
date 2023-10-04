@@ -8,6 +8,11 @@ require (
 )
 
 require (
+	github.com/felixge/httpsnoop v1.0.1 // indirect
+	github.com/gorilla/handlers v1.5.1 // indirect
+)
+
+require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect

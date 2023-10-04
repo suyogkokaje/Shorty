@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 
@@ -20,6 +21,12 @@ func main() {
 	}
 
 	db.InitMongoClient()
+
+	corsHandler := handlers.CORS(
+		handlers.AllowedOrigins([]string{"*"}), // Replace "*" with your allowed origins.
+		handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
+		handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
+	)
 
 	r := mux.NewRouter()
 
