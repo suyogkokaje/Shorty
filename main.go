@@ -15,15 +15,7 @@ import (
 func main() {
 	db.InitMongoClient()
 
-	// corsHandler := handlers.CORS(
-	// 	handlers.AllowedOrigins([]string{"*"}), // Replace "*" with your allowed origins.
-	// 	handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
-	// 	handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
-	// )
-
 	r := mux.NewRouter()
-
-	// r.Use(corsHandler)
 
 	r.HandleFunc("/signup", controllers.SignUpHandler).Methods("POST")
 	r.HandleFunc("/login", controllers.LoginHandler).Methods("POST")
