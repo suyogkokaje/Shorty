@@ -28,6 +28,8 @@ func main() {
 		handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
 	)
 
+	r.Use(corsHandler)
+
 	r := mux.NewRouter()
 
 	r.HandleFunc("/signup", controllers.SignUpHandler).Methods("POST")
